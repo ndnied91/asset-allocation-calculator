@@ -1,7 +1,7 @@
 <script setup>
-import HelloWorld from './components/HelloWorld.vue'
+import AssetAllocationCalculator from './components/AssetAllocationCalculator.vue'
 </script>
 
 <template>
-  <HelloWorld />
+  <AssetAllocationCalculator />
 </template>

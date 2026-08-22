@@ -6,9 +6,9 @@ import { fetchExchangeRates } from '../api/coinbase.js'
 import { getPriceFromRate, calculateAllocation, formatCrypto } from '../utils/utils.js'
 
 const cryptoAllocations = [
-  { symbol: 'BTC', allocation: 0.6 },
+  { symbol: 'BTC', allocation: 0.7 },
   { symbol: 'ETH', allocation: 0.3 },
-  { symbol: 'SOL', allocation: 0.1 },
+  // { symbol: 'SOL', allocation: 0.3 },
   // { symbol: 'SOL', allocation: 0.1 },
   
 ]
@@ -21,11 +21,12 @@ const configError = Math.abs(allocationTotal - 1) > 0.001
 
 const amount = ref('')
 const rates = ref(null)
-const loading = ref(true)
+const loading = ref(false)
 const error = ref(false)
 const lastUpdated = ref(null)
 
 const loadRates = async () => {
+  if (loading.value) return
   loading.value = true
   error.value = false
   try {
@@ -95,11 +96,12 @@ const handleAmountInput = (e) => {
 
 
     <template v-else>
-    <RatesDisplay
+   <RatesDisplay
       :rates="rates"
       :loading="loading"
       :error="error"
       :last-updated="lastUpdated"
+      :symbols="cryptoAllocations.map(c => c.symbol)"
       @refresh="loadRates"
     />
 

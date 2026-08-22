@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from 'vue'
-import { formatUSD , formatTime } from '../utils/utils'
+import { getPriceFromRate, formatUSD, formatTime } from '../utils/utils.js'
 const formattedLastUpdated = computed(() => formatTime(props.lastUpdated))
 
 
@@ -9,6 +9,7 @@ const props = defineProps({
   loading: { type: Boolean, default: false },
   error: { type: Boolean, default: false },
   lastUpdated: { type: [Date, null], default: null },
+  symbols: { type: Array, default: () => ['BTC', 'ETH'] },
 })
 
 const emit = defineEmits(['refresh'])
@@ -16,7 +17,7 @@ const emit = defineEmits(['refresh'])
 </script>
 
 <template>
-  <div class="mb-6 flex items-center justify-between">
+   <div class="mb-6 flex items-center justify-between">
     <div v-if="loading && !rates" role="status" class="text-sm text-gray-400">
       Loading live rates...
     </div>
@@ -24,19 +25,22 @@ const emit = defineEmits(['refresh'])
       Couldn't load live rates. Please try again.
     </div>
     <div v-else class="text-sm text-gray-600 space-y-1">
-      <p>BTC: {{ formatUSD(rates ? 1 / rates.BTC : null) }}</p>
-      <p>ETH: {{ formatUSD(rates ? 1 / rates.ETH : null) }}</p>
+      <p v-for="symbol in symbols" :key="symbol">
+        {{ symbol }}: {{ formatUSD(rates ? getPriceFromRate(rates, symbol) : null) }}
+      </p>
       <p v-if="formattedLastUpdated" class="text-xs text-gray-400">
         Last updated: {{ formattedLastUpdated }}
       </p>
     </div>
 
-    <button
-      @click="emit('refresh')"
-      :aria-busy="loading"
-      class="text-sm cursor-pointer border p-2 rounded-xl text-blue-600 hover:text-blue-800"
-    >
-      Refresh
-    </button>
+   <button
+  @click="emit('refresh')"
+  :aria-disabled="loading"
+  :aria-busy="loading"
+  class="text-sm cursor-pointer border p-2 rounded-xl text-blue-600 hover:text-blue-800"
+  :class="loading ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''"
+>
+  {{ loading ? 'Updating...' : 'Refresh' }}
+</button>
   </div>
 </template>

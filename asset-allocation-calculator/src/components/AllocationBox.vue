@@ -1,4 +1,5 @@
 <script setup>
+// Shows one label + value box. Used once per crypto in the allocation list.
 defineProps({
   label: {
     type: String,
@@ -8,6 +9,7 @@ defineProps({
     type: [String, Number],
     default: '—',
   },
+  // Needs a unique id since this component gets rendered more than once (one per crypto)
   id: {
     type: String,
     required: true,
@@ -20,6 +22,7 @@ defineProps({
     <span :id="`${id}-label`" class="block text-sm font-medium text-gray-700 mb-1">
       {{ label }}
     </span>
+    <!-- announces the value to screen readers when it updates -->
     <div
       :aria-labelledby="`${id}-label`"
       role="status"

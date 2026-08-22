@@ -1,56 +1,137 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import AllocationBox from './AllocationBox.vue'
+import RatesDisplay from './RatesDisplay.vue'
 import { fetchExchangeRates } from '../api/coinbase.js'
+import { getPriceFromRate, calculateAllocation, formatCrypto } from '../utils/utils.js'
+
+const cryptoAllocations = [
+  { symbol: 'BTC', allocation: 0.6 },
+  { symbol: 'ETH', allocation: 0.3 },
+  { symbol: 'SOL', allocation: 0.1 },
+  // { symbol: 'SOL', allocation: 0.1 },
+  
+]
+
+const allocationTotal = cryptoAllocations.reduce((sum, { allocation }) => sum + allocation, 0)
+const configError = Math.abs(allocationTotal - 1) > 0.001
+  ? `Crypto allocations must sum to 100%. Currently configured: ${(allocationTotal * 100).toFixed(1)}%`
+  : null
+
 
 const amount = ref('')
 const rates = ref(null)
+const loading = ref(true)
+const error = ref(false)
+const lastUpdated = ref(null)
 
-onMounted(async () => {
-  const data = await fetchExchangeRates()
-  rates.value = data
+const loadRates = async () => {
+  loading.value = true
+  error.value = false
+  try {
+    const data = await fetchExchangeRates()
+    rates.value = data
+    lastUpdated.value = new Date()
+  } catch (e) {
+    console.log(e)
+    error.value = true
+  }
+  loading.value = false
+}
+
+onMounted(() => loadRates())
+
+const validationError = computed(() => {
+  if (amount.value === '') return null
+  const num = Number(amount.value)
+  if (isNaN(num)) return 'Please enter a valid number'
+  if (num <= 0) return 'Amount must be greater than 0'
+  return null
 })
 
-const btcPrice = computed(() => {
-  if (!rates.value) return null
-  return 1 / rates.value.BTC
+const parsedAmount = computed(() => {
+  if (validationError.value) return null
+  return amount.value === '' ? null : Number(amount.value)
 })
 
-const ethPrice = computed(() => {
-  if (!rates.value) return null
-  return 1 / rates.value.ETH
+const prices = computed(() => {
+  if (!rates.value) return {}
+  return cryptoAllocations.reduce((acc, { symbol }) => {
+    acc[symbol] = getPriceFromRate(rates.value, symbol)
+    return acc
+  }, {})
 })
+
+const allocations = computed(() => {
+  return cryptoAllocations.map(({ symbol, allocation }) => ({
+    symbol,
+    allocation,
+    value: calculateAllocation(parsedAmount.value, allocation, prices.value[symbol]),
+  }))
+})
+
+const displayAmount = computed(() => {
+  if (amount.value === '') return ''
+  const num = Number(amount.value)
+  if (isNaN(num)) return amount.value
+  const [whole, decimal] = amount.value.split('.')
+  const formattedWhole = Number(whole).toLocaleString()
+  return decimal !== undefined ? `${formattedWhole}.${decimal}` : formattedWhole
+})
+
+const handleAmountInput = (e) => {
+  const raw = e.target.value.replace(/,/g, '')
+  amount.value = raw
+}
 </script>
 
 <template>
   <main class="p-8 max-w-md mx-auto">
     <h1 class="text-2xl font-bold mb-6">Asset Allocation Calculator</h1>
 
-    <div v-if="rates" class="mb-6 text-sm text-gray-600 space-y-1">
-      <p>BTC: ${{ btcPrice.toLocaleString(undefined, { maximumFractionDigits: 2 }) }}</p>
-      <p>ETH: ${{ ethPrice.toLocaleString(undefined, { maximumFractionDigits: 2 }) }}</p>
+    <div v-if="configError" role="alert" class="p-4 mb-6 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+      {{ configError }}
     </div>
-    <div v-else class="mb-6 text-sm text-gray-400">
-      Loading live rates...
-    </div>
+
+
+    <template v-else>
+    <RatesDisplay
+      :rates="rates"
+      :loading="loading"
+      :error="error"
+      :last-updated="lastUpdated"
+      @refresh="loadRates"
+    />
 
     <label for="amount" class="block text-sm font-medium text-gray-700 mb-1">
       Investable assets
     </label>
     <input
       id="amount"
-      type="number"
+      type="text"
       inputmode="decimal"
-      min="0"
-      v-model="amount"
-      aria-describedby="amount-hint"
-      class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      placeholder="Enter amount in $"
+      :value="displayAmount"
+      @input="handleAmountInput"
+      :aria-invalid="!!validationError"
+      :aria-describedby="validationError ? 'amount-error' : 'amount-hint'"
+      class="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2"
+      :class="validationError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'"
     />
     <span id="amount-hint" class="sr-only">Enter the total USD amount you want to invest</span>
+    <p v-if="validationError" id="amount-error" role="alert" class="mt-1 text-sm text-red-600">
+      {{ validationError }}
+    </p>
 
-    <div class="mt-6 grid grid-cols-2 gap-4">
-      <AllocationBox id="btc" label="70% BTC allocation" />
-      <AllocationBox id="eth" label="30% ETH allocation" />
+    <div class="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+      <AllocationBox
+        v-for="item in allocations"
+        :key="item.symbol"
+        :id="item.symbol.toLowerCase()"
+        :label="`${item.allocation * 100}% ${item.symbol} allocation`"
+        :value="formatCrypto(item.value)"
+      />
     </div>
+    </template>
   </main>
 </template>

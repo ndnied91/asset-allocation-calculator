@@ -156,5 +156,5 @@ Manual testing, since automated tests weren't required for this assignment:
 
 
 
-This isn't a complete list, just some ideas that came up while building —
+This isn't a complete list, just some ideas that came up while building,
 things I could add without reworking what's already there.

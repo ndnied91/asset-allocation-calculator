@@ -9,7 +9,11 @@ configurable set of cryptocurrencies, using live exchange rates from Coinbase.
 - Tailwind CSS
 
 ## Running it
+
+Requires Node 20.19+ or 22.12+ (Vite's minimum supported versions).
+
 ​```
+cd asset-allocation-calculator/asset-allocation-calculator 
 npm install
 npm run dev
 ​```

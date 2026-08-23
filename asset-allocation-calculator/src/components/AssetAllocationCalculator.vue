@@ -9,7 +9,9 @@ import { getPriceFromRate, calculateAllocation, formatCrypto } from '../utils/ut
 // Must add up to 1 (100%), see configError below.
 const cryptoAllocations = [
   { symbol: 'BTC', allocation: 0.7 },
-  { symbol: 'ETH', allocation: 0.3 },
+  { symbol: 'ETH', allocation: 0.3},
+  // { symbol: 'SOL', allocation: 0.1 }, //test when adding a new coin
+  
 ]
 
 // Catches a bad config (e.g. a typo above) instead of silently showing wrong numbers
@@ -128,14 +130,14 @@ const handleAmountInput = (e) => {
         {{ validationError }}
       </p>
 
-      <!-- 2 cols on mobile, 3 on desktop so boxes don't get too narrow -->
-      <div class="mt-6 grid grid-cols-2 md:grid-cols-3 gap-4">
+     <div class="mt-6 flex flex-wrap gap-4">
         <AllocationBox
           v-for="item in allocations"
           :key="item.symbol"
           :id="item.symbol.toLowerCase()"
           :label="`${item.allocation * 100}% ${item.symbol} allocation`"
           :value="formatCrypto(item.value)"
+          class="flex-1 basis-40"
         />
       </div>
     </template>

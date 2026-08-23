@@ -9,8 +9,10 @@ configurable set of cryptocurrencies, using live exchange rates from Coinbase.
 - Tailwind CSS
 
 ## Running it
+​```
 npm install
 npm run dev
+​```
 
 
 
@@ -26,24 +28,49 @@ the prices are.
 
 - **Config-driven split** — the crypto list and percentages live in a single
   array (`cryptoAllocations` in `AssetAllocationCalculator.vue`). Adding a
-  third asset or changing the percentages is a one-line change; everything
+  third asset or changing the percentages is a one-line change, everything
   else (pricing display, allocation boxes, layout) updates automatically.
   There's a validation check that stops the app and shows an error if the
   percentages don't add up to 100%, rather than silently showing wrong
   numbers.
 
-- **Rates fetched once on load, plus manual refresh** — rather than polling
-  continuously. Given the scope of this app, continuous polling felt like
-  unnecessary complexity for the time available; a manual refresh button
-  (paired with the "last updated" timestamp) covers the volatility concern
-  without it. (Feature update in Next Steps #1)
+- **Input validation** — the amount field rejects empty, non-numeric, zero,
+  and negative values with an inline error rather than letting invalid
+  input silently produce a blank or incorrect allocation. This mirrors
+  the same principle as the config-sum check above: fail visibly and early
+  rather than show the user numbers that don't mean anything.
 
-- **Component split** — `RatesDisplay` is a presentational component that
-  just displays whatever rates/loading/error state it's given as props, and
-  emits a `refresh` event on click. `AssetAllocationCalculator` owns the
-  actual data fetching and the allocation math, since that's the component
-  that needs the rates for its calculations. `AllocationBox` is a small
-  reusable component used once per crypto in the results.
+- **Rates fetched once on load, plus manual refresh** — rather than
+  continuous polling. Given the scope of this app, a manual refresh with a
+  "last updated" timestamp felt like the right amount of complexity for the
+  time available, and it still covers the volatility concern without the
+  overhead of an ongoing polling loop. While a refresh is in progress, the
+  button is visually disabled and a guard clause blocks any additional
+  clicks or keyboard activations from stacking up duplicate requests, see
+  the accessibility notes below for why it's not the native `disabled`
+  attribute. See "Polling or a live price feed" in Next Steps for how this
+  could be extended.
+
+- **Component split** — split into focused, single-purpose components rather
+  than one large file with everything in it. `RatesDisplay` is purely
+  presentational as it just displays whatever rates/loading/error state it's
+  given as props, and emits a `refresh` event on click, without knowing
+  anything about how the data is fetched. `AssetAllocationCalculator` owns
+  the actual data fetching and the allocation math, since that's the
+  component that needs the rates for its calculations. `AllocationBox` is a
+  small reusable component used once per crypto in the results — the same
+  component renders for BTC, ETH, or any additional asset added to the
+  config, rather than duplicating markup per coin. This keeps each piece
+  easier to reason about on its own and makes the UI easy to extend without
+  touching unrelated logic.
+
+- **Separation of concerns beyond components** — pure math and formatting
+  logic lives in `utils.js`, and the Coinbase fetch logic lives in
+  `api/coinbase.js`, both separate from the Vue components themselves.
+  Functions like `getPriceFromRate`, `calculateAllocation`, and the
+  formatters get imported wherever they're needed instead of being
+  rewritten per component, which limits duplication and reduces the chance
+  of the same logic drifting out of sync in two places if it's ever changed.
 
 - **Accessibility** — labeled inputs, `aria-live` regions for values that
   update dynamically without a page reload, inline validation messages tied
@@ -52,38 +79,42 @@ the prices are.
   `pointer-events-none` instead of the native `disabled` attribute, which
   would remove it from the tab order).
 
-- **Responsive layout** — the allocation boxes wrap to 2 columns on mobile
-  and 3 on desktop, and each box grows to match the tallest one in its row
-  so a long number in one box doesn't leave its siblings looking mismatched.
+- **Responsive layout** — the allocation boxes use a flexible layout that
+  grows each box to fill the available width (so 2 boxes stretch to fill
+  the row rather than sitting narrow with empty space), and wraps to a new
+  line once there isn't room for another box. Each box also grows to match
+  the tallest one in its row, so a long number in one box doesn't leave its
+  siblings looking mismatched.
 
 
 ## Tests Performed
 
 Manual testing, since automated tests weren't required for this assignment:
 
-- Valid amount entry, confirmed correct BTC/ETH split calculation
-- Empty input — shows no allocation, no false validation error
-- Zero and negative amounts — shows a validation error, blocks calculation
-- Non-numeric input — shows a validation error, blocks calculation
-- Very large decimal amounts (e.g. `100000000.123456789`) — confirmed the
+- Valid amount entry: confirmed correct BTC/ETH split calculation
+- Empty input: shows no allocation, no false validation error
+- Zero and negative amounts: shows a validation error, blocks calculation
+- Non-numeric input: shows a validation error, blocks calculation
+- Very large decimal amounts (e.g. `100000000.123456789`): confirmed the
   app handles it without breaking
-- Comma-formatted display while typing (e.g. `100,000`), confirmed the
+- Comma-formatted display while typing (e.g. `100,000`): confirmed the
   underlying value used for calculation stays a clean number
-- Added a third crypto (SOL) to the config — confirmed its price and
+- Added a third crypto (SOL) to the config: confirmed its price and
   allocation box appeared correctly, and removing it cleanly removed both
   again, with no other code changes needed
-- Refresh button — confirmed it re-fetches rates and recalculates any
+- Refresh button: confirmed it re-fetches rates and recalculates any
   existing allocation automatically
 - Repeated Refresh clicks / repeated Enter presses while a fetch is in
-  progress — confirmed duplicate requests are blocked
-- Keyboard navigation — confirmed the Refresh button stays focusable and
+  progress: confirmed duplicate requests are blocked
+- Keyboard navigation: confirmed the Refresh button stays focusable and
   doesn't lose focus while loading or after an error
-- Simulated API failure — confirmed the error state displays correctly
-- Misconfigured `cryptoAllocations` (percentages not summing to 100%) —
+- Simulated API failure: confirmed the error state displays correctly
+- Misconfigured `cryptoAllocations` (percentages not summing to 100%):
   confirmed the app shows a config error and blocks the calculator
-- Mobile viewport — confirmed the allocation boxes wrap to 2 columns on
-  narrow screens and stay equal height
-- Long allocation values — confirmed text wraps inside the box instead of
+- Mobile viewport: confirmed the allocation boxes stretch to fill the
+  available width, wrap to a new line once there isn't room, and stay
+  equal height across a row
+- Long allocation values: confirmed text wraps inside the box instead of
   overflowing
 
 
@@ -113,3 +144,17 @@ Manual testing, since automated tests weren't required for this assignment:
    API calls, keyboard navigation, mobile layout). A production app would
    have unit tests around the allocation math and formatting helpers in
    particular, since those are pure functions and straightforward to test.
+
+6. **Support for other base currencies** — the Coinbase endpoint's
+   `currency` parameter accepts more than just USD, so a user could pick
+   GBP, EUR, etc. as their base currency instead. I'd default to USD and
+   let the user explicitly select a different currency from a dropdown,
+   rather than trying to auto-detect it from browser locale or geolocation
+   — those signals are unreliable enough (a UK user with an en-US browser
+   setting, for example) that guessing wrong on a money app is worse than
+   just asking.
+
+
+
+This isn't a complete list, just some ideas that came up while building —
+things I could add without reworking what's already there.
